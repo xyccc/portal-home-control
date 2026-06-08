@@ -1,0 +1,19 @@
+{
+  "_comment": "Copy to config.json (same folder) to pre-seed credentials into the APK on first launch. config.json is gitignored. You can also leave this out and enter everything in the in-app Settings screen.",
+  "hue": {
+    "bridge_ip": "192.168.1.20",
+    "app_key": "PASTE_HUE_APPLICATION_KEY"
+  },
+  "tuya": {
+    "region_host": "openapi.tuyaus.com",
+    "access_id": "PASTE_TUYA_ACCESS_ID",
+    "access_secret": "PASTE_TUYA_ACCESS_SECRET",
+    "uid": "PASTE_TUYA_LINKED_ACCOUNT_UID"
+  },
+  "nest": {
+    "project_id": "PASTE_DEVICE_ACCESS_PROJECT_ID",
+    "client_id": "PASTE_OAUTH_CLIENT_ID",
+    "client_secret": "PASTE_OAUTH_CLIENT_SECRET",
+    "refresh_token": "PASTE_REFRESH_TOKEN_FROM_get_nest_token.py"
+  }
+}

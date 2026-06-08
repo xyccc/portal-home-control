@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive-icon foreground: a house silhouette with a cut-out door.
+     Drawn in the 108x108 viewport; the glyph is kept inside the central
+     safe zone so launcher masks (circle/squircle) don't clip it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,24
+            L82,52
+            L72,52
+            L72,84
+            L36,84
+            L36,52
+            L26,52
+            Z
+            M48,84
+            L48,64
+            L60,64
+            L60,84
+            Z" />
+</vector>

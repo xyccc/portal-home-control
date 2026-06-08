@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Portal Home</string>
+    <string name="settings_title">Settings</string>
+    <string name="refresh">Refresh</string>
+    <string name="settings">Settings</string>
+    <string name="save">Save</string>
+    <string name="section_hue">Philips Hue</string>
+    <string name="section_feit">Feit (Tuya)</string>
+    <string name="section_doorbell">Nest Doorbell</string>
+</resources>
