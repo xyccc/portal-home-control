@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.yvonna.portalhome.databinding.ActivityMainBinding
@@ -84,26 +83,15 @@ class MainActivity : AppCompatActivity() {
                 val row = ItemActionBinding.inflate(layoutInflater, binding.container, false)
                 row.txtName.text = "${d.displayName} (${if (d.online) "online" else "offline"})"
                 row.btnAction.text = "Live"
-                row.btnAction.setOnClickListener { openStream(d.resourceName) }
+                row.btnAction.setOnClickListener {
+                    startActivity(
+                        Intent(this@MainActivity, WebRtcDoorbellActivity::class.java)
+                            .putExtra(WebRtcDoorbellActivity.EXTRA_RESOURCE, d.resourceName)
+                    )
+                }
                 binding.container.addView(row.root)
             }
         }.onFailure { addInfo("Error: ${it.message}") }
-    }
-
-    private fun openStream(resourceName: String) {
-        binding.txtStatus.text = "Requesting stream…"
-        lifecycleScope.launch {
-            runCatching { withContext(Dispatchers.IO) { nest.generateRtspStream(resourceName) } }
-                .onSuccess { url ->
-                    AlertDialog.Builder(this@MainActivity)
-                        .setTitle("RTSP stream")
-                        .setMessage(url)
-                        .setPositiveButton("OK", null)
-                        .show()
-                }
-                .onFailure { toast(it.message ?: "Stream failed") }
-            binding.txtStatus.text = "Updated."
-        }
     }
 
     private fun addLight(light: LightDevice) {

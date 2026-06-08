@@ -72,6 +72,54 @@ class NestSdmClient(private val cfg: Config) {
         }
     }
 
+    /**
+     * Starts a WebRTC live stream for battery-powered cameras/doorbells. Send the
+     * local SDP offer; receive the answer SDP plus a media session id used to
+     * extend or stop the stream. The session expires after ~5 minutes.
+     */
+    fun generateWebRtcStream(resourceName: String, offerSdp: String): WebRtcAnswer {
+        val payload = JSONObject()
+            .put("command", "sdm.devices.commands.CameraLiveStream.GenerateWebRtcStream")
+            .put("params", JSONObject().put("offerSdp", offerSdp))
+            .toString()
+        val req = Request.Builder()
+            .url("$SDM_BASE/$resourceName:executeCommand")
+            .header("Authorization", "Bearer ${accessToken()}")
+            .post(payload.toRequestBody(JSON))
+            .build()
+        client.newCall(req).execute().use { resp ->
+            val body = resp.body?.string().orEmpty()
+            if (!resp.isSuccessful) error("WebRTC stream failed: ${resp.code} $body")
+            val results = JSONObject(body).optJSONObject("results")
+                ?: error("No results in WebRTC response: $body")
+            val answer = results.optString("answerSdp")
+            if (answer.isEmpty()) error("No answerSdp returned: $body")
+            return WebRtcAnswer(
+                answerSdp = answer,
+                mediaSessionId = results.optString("mediaSessionId"),
+                expiresAt = results.optString("expiresAt"),
+            )
+        }
+    }
+
+    /** Stops an active WebRTC session to free the camera/doorbell stream. */
+    fun stopWebRtcStream(resourceName: String, mediaSessionId: String) {
+        val payload = JSONObject()
+            .put("command", "sdm.devices.commands.CameraLiveStream.StopWebRtcStream")
+            .put("params", JSONObject().put("mediaSessionId", mediaSessionId))
+            .toString()
+        val req = Request.Builder()
+            .url("$SDM_BASE/$resourceName:executeCommand")
+            .header("Authorization", "Bearer ${accessToken()}")
+            .post(payload.toRequestBody(JSON))
+            .build()
+        client.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                error("Stop WebRTC failed: ${resp.code} ${resp.body?.string().orEmpty()}")
+            }
+        }
+    }
+
     private fun accessToken(): String {
         if (token.isNotEmpty() && System.currentTimeMillis() < tokenExpiresAt) return token
         val form = FormBody.Builder()
@@ -96,3 +144,10 @@ class NestSdmClient(private val cfg: Config) {
         private val JSON = "application/json".toMediaType()
     }
 }
+
+/** Result of starting a WebRTC stream via SDM. */
+class WebRtcAnswer(
+    val answerSdp: String,
+    val mediaSessionId: String,
+    val expiresAt: String,
+)
