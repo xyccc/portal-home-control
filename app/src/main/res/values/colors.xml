@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="portal_bg_top">#F6F3EC</color>
+    <color name="portal_bg_bottom">#E7EEF0</color>
+    <color name="portal_surface">#FFFFFFFF</color>
+    <color name="portal_surface_soft">#F8FAF8</color>
+    <color name="portal_ink">#16201F</color>
+    <color name="portal_ink_muted">#5D6B68</color>
+    <color name="portal_primary">#0F766E</color>
+    <color name="portal_primary_dark">#0B4F4A</color>
+    <color name="portal_primary_soft">#D9F0EC</color>
+    <color name="portal_accent">#D97706</color>
+    <color name="portal_outline">#D8E1DD</color>
+</resources>

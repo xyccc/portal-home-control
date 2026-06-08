@@ -1,6 +1,14 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.PortalHome" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
+        <item name="colorPrimary">@color/portal_primary</item>
+        <item name="colorPrimaryVariant">@color/portal_primary_dark</item>
+        <item name="colorSecondary">@color/portal_accent</item>
+        <item name="colorSurface">@color/portal_surface</item>
+        <item name="colorOutline">@color/portal_outline</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:navigationBarColor">@color/portal_bg_bottom</item>
+        <item name="android:statusBarColor">@color/portal_bg_top</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <style name="SettingsHeader">
@@ -8,13 +16,17 @@
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_marginTop">20dp</item>
         <item name="android:textAllCaps">true</item>
-        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:textColor">@color/portal_primary_dark</item>
+        <item name="android:letterSpacing">0.08</item>
         <item name="android:textStyle">bold</item>
     </style>
 
     <style name="SettingsField">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:minHeight">56dp</item>
+        <item name="android:textColor">@color/portal_ink</item>
+        <item name="android:textColorHint">@color/portal_ink_muted</item>
     </style>
 </resources>
