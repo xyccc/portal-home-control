@@ -3,6 +3,9 @@ package com.yvonna.portalhome
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
+import android.widget.GridLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -66,21 +69,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun loadLights(section: String, fetch: suspend () -> List<LightDevice>) {
-        addSection(section)
+        val grid = addSection(section)
         val result = runCatching { withContext(Dispatchers.IO) { fetch() } }
         result.onSuccess { lights ->
-            if (lights.isEmpty()) addInfo("No lights found.")
-            else lights.forEach { addLight(it) }
-        }.onFailure { addInfo("Error: ${it.message}") }
+            if (lights.isEmpty()) addInfo("No lights found.", grid)
+            else lights.forEach { addLight(it, grid) }
+        }.onFailure { addInfo("Error: ${it.message}", grid) }
     }
 
     private suspend fun loadDoorbells() {
-        addSection("Nest Doorbell")
+        val grid = addSection("Nest Doorbell")
         val result = runCatching { withContext(Dispatchers.IO) { nest.listDoorbells() } }
         result.onSuccess { doorbells ->
-            if (doorbells.isEmpty()) addInfo("No cameras/doorbells found.")
+            if (doorbells.isEmpty()) addInfo("No cameras/doorbells found.", grid)
             doorbells.forEach { d ->
-                val row = ItemActionBinding.inflate(layoutInflater, binding.container, false)
+                val row = ItemActionBinding.inflate(layoutInflater, grid, false)
                 row.txtName.text = "${d.displayName} (${if (d.online) "online" else "offline"})"
                 row.btnAction.text = "Live"
                 row.btnAction.setOnClickListener {
@@ -89,13 +92,13 @@ class MainActivity : AppCompatActivity() {
                             .putExtra(WebRtcDoorbellActivity.EXTRA_RESOURCE, d.resourceName)
                     )
                 }
-                binding.container.addView(row.root)
+                addCardToGrid(grid, row.root)
             }
-        }.onFailure { addInfo("Error: ${it.message}") }
+        }.onFailure { addInfo("Error: ${it.message}", grid) }
     }
 
-    private fun addLight(light: LightDevice) {
-        val row = ItemDeviceBinding.inflate(layoutInflater, binding.container, false)
+    private fun addLight(light: LightDevice, grid: GridLayout) {
+        val row = ItemDeviceBinding.inflate(layoutInflater, grid, false)
         row.txtName.text = light.name
 
         // Nullable var so the lambda can re-attach itself by reference after a revert.
@@ -154,22 +157,66 @@ class MainActivity : AppCompatActivity() {
             row.sliderBrightness.visibility = View.GONE
         }
 
-        binding.container.addView(row.root)
+        addCardToGrid(grid, row.root)
     }
 
-    private fun addSection(title: String) {
+    private fun addSection(title: String): GridLayout {
         val header = ItemSectionBinding.inflate(layoutInflater, binding.container, false)
         header.root.text = title
         binding.container.addView(header.root)
+
+        return GridLayout(this).apply {
+            columnCount = cardColumns()
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            binding.container.addView(this)
+        }
     }
 
-    private fun addInfo(text: String) {
+    private fun addInfo(text: String, grid: GridLayout? = null) {
         val tv = TextView(this).apply {
             this.text = text
-            setPadding(0, 8, 0, 8)
+            setTextColor(getColor(R.color.portal_ink_muted))
+            setPadding(dp(10), dp(10), dp(10), dp(10))
             visibility = View.VISIBLE
         }
-        binding.container.addView(tv)
+        if (grid == null) {
+            binding.container.addView(tv)
+        } else {
+            val lp = GridLayout.LayoutParams().apply {
+                width = 0
+                height = ViewGroup.LayoutParams.WRAP_CONTENT
+                columnSpec = GridLayout.spec(0, grid.columnCount, 1f)
+                setMargins(dp(4), dp(4), dp(4), dp(8))
+            }
+            grid.addView(tv, lp)
+        }
+    }
+
+    private fun addCardToGrid(grid: GridLayout, view: View) {
+        val lp = GridLayout.LayoutParams().apply {
+            width = 0
+            height = ViewGroup.LayoutParams.WRAP_CONTENT
+            columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+            setMargins(dp(5), dp(5), dp(5), dp(5))
+        }
+        grid.addView(view, lp)
+    }
+
+    private fun cardColumns(): Int {
+        val widthDp = resources.configuration.screenWidthDp
+        return when {
+            widthDp >= 1200 -> 4
+            widthDp >= 820 -> 3
+            widthDp >= 560 -> 2
+            else -> 1
+        }
+    }
+
+    private fun dp(value: Int): Int {
+        return (value * resources.displayMetrics.density).toInt()
     }
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
