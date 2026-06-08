@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Adaptive-icon foreground: a house silhouette with a cut-out door.
-     Drawn in the 108x108 viewport; the glyph is kept inside the central
-     safe zone so launcher masks (circle/squircle) don't clip it. -->
+<!-- Adaptive-icon foreground: the artwork stays inside the 72dp safe zone
+     of the 108dp viewport so Portal/Android launcher masks do not crop it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -9,19 +8,34 @@
     android:viewportHeight="108">
 
     <path
-        android:fillColor="#FFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M54,24
-            L82,52
-            L72,52
-            L72,84
-            L36,84
-            L36,52
-            L26,52
-            Z
-            M48,84
-            L48,64
-            L60,64
-            L60,84
-            Z" />
+        android:fillColor="@android:color/transparent"
+        android:pathData="M32,50 L54,30 L76,50 L70,50 L70,76 L38,76 L38,50 Z"
+        android:strokeColor="#41C7B9"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="5" />
+
+    <path
+        android:fillColor="#F2B15D"
+        android:pathData="M48,45 L53,45 L53,50 L48,50 Z
+            M55,45 L60,45 L60,50 L55,50 Z
+            M48,52 L53,52 L53,57 L48,57 Z
+            M55,52 L60,52 L60,57 L55,57 Z" />
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,56
+            C60.1,56 65,60.9 65,67
+            C65,73.1 60.1,78 54,78
+            C47.9,78 43,73.1 43,67
+            C43,60.9 47.9,56 54,56"
+        android:strokeColor="#41C7B9"
+        android:strokeWidth="4" />
+
+    <path
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54,56 C60.1,56 65,60.9 65,67"
+        android:strokeColor="#F2B15D"
+        android:strokeLineCap="round"
+        android:strokeWidth="4" />
 </vector>
