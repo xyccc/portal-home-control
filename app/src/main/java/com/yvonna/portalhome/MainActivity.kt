@@ -198,9 +198,9 @@ class MainActivity : AppCompatActivity() {
     private fun addCardToGrid(grid: GridLayout, view: View) {
         val lp = GridLayout.LayoutParams().apply {
             width = 0
-            height = ViewGroup.LayoutParams.WRAP_CONTENT
+            height = dp(126)
             columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
-            setMargins(dp(5), dp(5), dp(5), dp(5))
+            setMargins(dp(6), dp(6), dp(6), dp(6))
         }
         grid.addView(view, lp)
     }
@@ -208,8 +208,9 @@ class MainActivity : AppCompatActivity() {
     private fun cardColumns(): Int {
         val widthDp = resources.configuration.screenWidthDp
         return when {
-            widthDp >= 1200 -> 4
-            widthDp >= 820 -> 3
+            widthDp >= 1280 -> 5
+            widthDp >= 900 -> 4
+            widthDp >= 640 -> 3
             widthDp >= 560 -> 2
             else -> 1
         }

@@ -11,18 +11,18 @@
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
         android:orientation="vertical"
-        android:paddingLeft="14dp"
-        android:paddingTop="10dp"
+        android:paddingLeft="16dp"
+        android:paddingTop="14dp"
         android:paddingRight="14dp"
-        android:paddingBottom="10dp">
+        android:paddingBottom="12dp">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:minHeight="52dp"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:gravity="top"
             android:orientation="horizontal">
 
             <TextView
@@ -30,37 +30,38 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:maxLines="2"
                 android:textColor="@color/portal_ink"
-                android:textSize="18sp"
+                android:textSize="17sp"
                 android:textStyle="bold" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/swToggle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:minWidth="72dp"
-                android:minHeight="54dp"
-                android:scaleX="1.28"
-                android:scaleY="1.28"
+                android:layout_marginStart="10dp"
+                android:minWidth="70dp"
+                android:minHeight="50dp"
+                android:padding="6dp"
+                android:switchMinWidth="58dp"
                 app:thumbTint="@color/switch_thumb"
                 app:trackTint="@color/switch_track" />
         </LinearLayout>
 
         <com.google.android.material.slider.Slider
             android:id="@+id/sliderBrightness"
-            android:layout_width="180dp"
-            android:layout_height="38dp"
-            android:layout_marginTop="-2dp"
-            android:scaleY="0.78"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_marginTop="2dp"
             android:visibility="gone"
             android:valueFrom="1"
             android:valueTo="100"
             android:stepSize="1"
             app:haloColor="@color/portal_primary_soft"
             app:haloRadius="14dp"
-            app:labelBehavior="floating"
+            app:labelBehavior="gone"
             app:thumbColor="@color/portal_primary"
-            app:thumbRadius="7dp"
+            app:thumbRadius="6dp"
             app:trackColorActive="@color/portal_accent"
             app:trackColorInactive="@color/portal_outline"
             app:trackHeight="3dp" />
