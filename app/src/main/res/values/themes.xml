@@ -5,10 +5,13 @@
         <item name="colorSecondary">@color/portal_accent</item>
         <item name="colorSurface">@color/portal_surface</item>
         <item name="colorOutline">@color/portal_outline</item>
+        <item name="android:colorBackground">@color/portal_bg_bottom</item>
+        <item name="android:textColorPrimary">@color/portal_ink</item>
+        <item name="android:textColorSecondary">@color/portal_ink_muted</item>
         <item name="android:fontFamily">sans</item>
         <item name="android:navigationBarColor">@color/portal_bg_bottom</item>
-        <item name="android:statusBarColor">@color/portal_bg_top</item>
-        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@color/portal_bg_bottom</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 
     <style name="SettingsHeader">

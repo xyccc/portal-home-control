@@ -10,6 +10,6 @@
     android:paddingRight="14dp"
     android:paddingBottom="7dp"
     android:textAllCaps="true"
-    android:textColor="@color/portal_surface"
+    android:textColor="@color/portal_primary_dark"
     android:textSize="14sp"
     android:textStyle="bold" />
