@@ -12,20 +12,6 @@
       color: #fff; font-family: sans-serif; font-size: 22px;
       pointer-events: none; text-align: center; padding: 0 24px;
     }
-    #sound {
-      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
-      display: none; min-width: 200px; padding: 16px 28px;
-      font-family: sans-serif; font-size: 20px; font-weight: 600;
-      color: #fff; background: rgba(40, 40, 40, 0.85);
-      border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 32px;
-    }
-    #route {
-      position: fixed; right: 24px; top: 24px; z-index: 11;
-      display: none; padding: 12px 18px;
-      font-family: sans-serif; font-size: 16px; font-weight: 600;
-      color: #fff; background: rgba(40, 40, 40, 0.75);
-      border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 24px;
-    }
     #dbg {
       position: fixed; left: 8px; bottom: 8px; z-index: 10;
       color: #5f5; font-family: monospace; font-size: 14px;
@@ -42,8 +28,6 @@
   <video id="v" autoplay playsinline muted></video>
   <audio id="a" autoplay playsinline></audio>
   <div id="status">Connecting…</div>
-  <button id="sound">🔊 Tap for sound</button>
-  <button id="route">Audio: media</button>
   <div id="dbg"></div>
   <div id="stat"></div>
   <script>
@@ -58,12 +42,6 @@
       const el = document.getElementById('status');
       el.textContent = s;
       el.style.display = s ? 'flex' : 'none';
-    }
-
-    function setAudioRoute(route) {
-      const btn = document.getElementById('route');
-      btn.textContent = 'Audio: ' + route;
-      dbg('route: ' + route);
     }
 
     // On-screen diagnostics (also mirrored to logcat via the bridge).
@@ -136,9 +114,11 @@
             const a = document.getElementById('a');
             audioStream.addTrack(e.track);
             if (a.srcObject !== audioStream) a.srcObject = audioStream;
-            // Audio can only be reliably started by a real user tap on older
-            // Portal WebView builds, so surface a button for it.
-            document.getElementById('sound').style.display = 'block';
+            a.muted = false;
+            a.volume = 1.0;
+            a.play().then(() => dbg('audio play ok')).catch((err) => {
+              dbg('audio play err: ' + err);
+            });
           }
         };
         pc.oniceconnectionstatechange = () => dbg('ice: ' + pc.iceConnectionState);
@@ -199,32 +179,7 @@
       }
     }
 
-    // A real user tap is allowed to unmute, where programmatic unmute is blocked.
-    function setupSoundButton() {
-      const btn = document.getElementById('sound');
-      btn.onclick = () => {
-        const a = document.getElementById('a');
-        a.muted = false;
-        a.volume = 1.0;
-        AndroidBridge.onConnected();
-        a.play()
-          .then(() => {
-            btn.style.display = 'none';
-            document.getElementById('route').style.display = 'block';
-            dbg('audio play ok');
-          })
-          .catch((e) => dbg('audio play err: ' + e));
-      };
-
-      document.getElementById('route').onclick = () => {
-        AndroidBridge.toggleAudioRoute();
-        const a = document.getElementById('a');
-        a.play().catch((e) => dbg('audio replay err: ' + e));
-      };
-    }
-
     window.onload = () => {
-      setupSoundButton();
       start();
     };
   </script>

@@ -43,7 +43,6 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
     private var mediaSessionId: String = ""
 
     private var audioManager: AudioManager? = null
-    private var useCommunicationAudio = false
 
     private val micPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -140,17 +139,7 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
         fun onConnected() {
             // Connection is up — now safe to switch audio to the speaker without
             // disrupting WebRTC negotiation.
-            runOnUiThread { routeAudioToSpeaker(useCommunicationAudio) }
-        }
-
-        @JavascriptInterface
-        fun toggleAudioRoute() {
-            runOnUiThread {
-                useCommunicationAudio = !useCommunicationAudio
-                routeAudioToSpeaker(useCommunicationAudio)
-                val route = if (useCommunicationAudio) "call" else "media"
-                webView.evaluateJavascript("setAudioRoute(${JSONObject.quote(route)})", null)
-            }
+            runOnUiThread { routeAudioToSpeaker() }
         }
 
         @JavascriptInterface
@@ -171,13 +160,9 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
         }
     }
 
-    private fun routeAudioToSpeaker(useCommunicationMode: Boolean) {
+    private fun routeAudioToSpeaker() {
         audioManager?.apply {
-            mode = if (useCommunicationMode) {
-                AudioManager.MODE_IN_COMMUNICATION
-            } else {
-                AudioManager.MODE_NORMAL
-            }
+            mode = AudioManager.MODE_NORMAL
             isSpeakerphoneOn = true
             requestAudioFocus(
                 null,
