@@ -43,6 +43,7 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
     private var mediaSessionId: String = ""
 
     private var audioManager: AudioManager? = null
+    private var useCommunicationAudio = false
 
     private val micPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -60,10 +61,10 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
         nest = NestSdmClient(Config(this))
 
         audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
-        // Route the volume keys to the call stream (where WebView plays WebRTC
-        // audio) while this screen is open. The actual mode switch to the speaker
-        // happens after the connection is established — see routeAudioToSpeaker().
-        volumeControlStream = AudioManager.STREAM_VOICE_CALL
+        // Route the volume keys to the media stream. Portal's Chromium WebView can
+        // play remote WebRTC audio either as call audio or media audio depending on
+        // the engine path, so routeAudioToSpeaker() raises both streams.
+        volumeControlStream = AudioManager.STREAM_MUSIC
 
         webView = WebView(this)
         setContentView(webView)
@@ -139,7 +140,17 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
         fun onConnected() {
             // Connection is up — now safe to switch audio to the speaker without
             // disrupting WebRTC negotiation.
-            runOnUiThread { routeAudioToSpeaker() }
+            runOnUiThread { routeAudioToSpeaker(useCommunicationAudio) }
+        }
+
+        @JavascriptInterface
+        fun toggleAudioRoute() {
+            runOnUiThread {
+                useCommunicationAudio = !useCommunicationAudio
+                routeAudioToSpeaker(useCommunicationAudio)
+                val route = if (useCommunicationAudio) "call" else "media"
+                webView.evaluateJavascript("setAudioRoute(${JSONObject.quote(route)})", null)
+            }
         }
 
         @JavascriptInterface
@@ -160,14 +171,28 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
         }
     }
 
-    private fun routeAudioToSpeaker() {
+    private fun routeAudioToSpeaker(useCommunicationMode: Boolean) {
         audioManager?.apply {
-            mode = AudioManager.MODE_IN_COMMUNICATION
-            isSpeakerphoneOn = true
-            val max = getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)
-            if (getStreamVolume(AudioManager.STREAM_VOICE_CALL) < max / 2) {
-                setStreamVolume(AudioManager.STREAM_VOICE_CALL, (max * 0.7).toInt(), 0)
+            mode = if (useCommunicationMode) {
+                AudioManager.MODE_IN_COMMUNICATION
+            } else {
+                AudioManager.MODE_NORMAL
             }
+            isSpeakerphoneOn = true
+            requestAudioFocus(
+                null,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT
+            )
+            raiseStreamVolume(AudioManager.STREAM_VOICE_CALL)
+            raiseStreamVolume(AudioManager.STREAM_MUSIC)
+        }
+    }
+
+    private fun AudioManager.raiseStreamVolume(stream: Int) {
+        val max = getStreamMaxVolume(stream)
+        if (getStreamVolume(stream) < max / 2) {
+            setStreamVolume(stream, (max * 0.75).toInt(), 0)
         }
     }
 
@@ -186,6 +211,7 @@ class WebRtcDoorbellActivity : AppCompatActivity() {
         audioManager?.apply {
             mode = AudioManager.MODE_NORMAL
             isSpeakerphoneOn = false
+            abandonAudioFocus(null)
         }
         webView.destroy()
         super.onDestroy()

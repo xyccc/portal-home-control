@@ -19,6 +19,13 @@
       color: #fff; background: rgba(40, 40, 40, 0.85);
       border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 32px;
     }
+    #route {
+      position: fixed; right: 24px; top: 24px; z-index: 11;
+      display: none; padding: 12px 18px;
+      font-family: sans-serif; font-size: 16px; font-weight: 600;
+      color: #fff; background: rgba(40, 40, 40, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.35); border-radius: 24px;
+    }
     #dbg {
       position: fixed; left: 8px; bottom: 8px; z-index: 10;
       color: #5f5; font-family: monospace; font-size: 14px;
@@ -33,20 +40,30 @@
 </head>
 <body>
   <video id="v" autoplay playsinline muted></video>
+  <audio id="a" autoplay playsinline></audio>
   <div id="status">Connecting…</div>
   <button id="sound">🔊 Tap for sound</button>
+  <button id="route">Audio: media</button>
   <div id="dbg"></div>
   <div id="stat"></div>
   <script>
     let pc;
     let statsTimer = null;
     let retries = 0;
+    let videoStream = new MediaStream();
+    let audioStream = new MediaStream();
     const MAX_RETRIES = 3;
 
     function setStatus(s) {
       const el = document.getElementById('status');
       el.textContent = s;
       el.style.display = s ? 'flex' : 'none';
+    }
+
+    function setAudioRoute(route) {
+      const btn = document.getElementById('route');
+      btn.textContent = 'Audio: ' + route;
+      dbg('route: ' + route);
     }
 
     // On-screen diagnostics (also mirrored to logcat via the bridge).
@@ -85,7 +102,9 @@
         });
         document.getElementById('stat').textContent =
           'audio pkts ' + (a ? a.packetsReceived : 'n/a') + '\n' +
-          'video pkts ' + (v ? v.packetsReceived : 'n/a');
+          'video pkts ' + (v ? v.packetsReceived : 'n/a') + '\n' +
+          'audio paused ' + document.getElementById('a').paused + '\n' +
+          'audio muted ' + document.getElementById('a').muted;
       }, 1000);
     }
 
@@ -108,12 +127,17 @@
         pc.ontrack = (e) => {
           // Show each track's kind so we can see whether audio is arriving.
           dbg('track: ' + e.track.kind);
-          const v = document.getElementById('v');
-          if (e.streams && e.streams[0] && v.srcObject !== e.streams[0]) {
-            v.srcObject = e.streams[0];
+          if (e.track.kind === 'video') {
+            const v = document.getElementById('v');
+            videoStream.addTrack(e.track);
+            if (v.srcObject !== videoStream) v.srcObject = videoStream;
             setStatus('');
-            // Video autoplays muted (browser requirement). Audio can only be
-            // unmuted by a real user tap, so surface a button for it.
+          } else if (e.track.kind === 'audio') {
+            const a = document.getElementById('a');
+            audioStream.addTrack(e.track);
+            if (a.srcObject !== audioStream) a.srcObject = audioStream;
+            // Audio can only be reliably started by a real user tap on older
+            // Portal WebView builds, so surface a button for it.
             document.getElementById('sound').style.display = 'block';
           }
         };
@@ -141,6 +165,8 @@
     function teardown() {
       if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
       if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+      videoStream = new MediaStream();
+      audioStream = new MediaStream();
     }
 
     // Nest WebRTC sessions are time-limited and the network can drop; re-establish
@@ -177,12 +203,23 @@
     function setupSoundButton() {
       const btn = document.getElementById('sound');
       btn.onclick = () => {
-        const v = document.getElementById('v');
-        v.muted = false;
-        v.volume = 1.0;
-        v.play().then(() => dbg('play ok')).catch((e) => dbg('play err: ' + e));
-        btn.style.display = 'none';
-        dbg('unmuted by tap');
+        const a = document.getElementById('a');
+        a.muted = false;
+        a.volume = 1.0;
+        AndroidBridge.onConnected();
+        a.play()
+          .then(() => {
+            btn.style.display = 'none';
+            document.getElementById('route').style.display = 'block';
+            dbg('audio play ok');
+          })
+          .catch((e) => dbg('audio play err: ' + e));
+      };
+
+      document.getElementById('route').onclick = () => {
+        AndroidBridge.toggleAudioRoute();
+        const a = document.getElementById('a');
+        a.play().catch((e) => dbg('audio replay err: ' + e));
       };
     }
 
