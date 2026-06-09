@@ -12,18 +12,47 @@
       color: #fff; font-family: sans-serif; font-size: 22px;
       pointer-events: none; text-align: center; padding: 0 24px;
     }
+    #sound {
+      position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+      display: none; min-width: 200px; padding: 16px 28px;
+      font-family: sans-serif; font-size: 20px; font-weight: 600;
+      color: #fff; background: rgba(40, 40, 40, 0.85);
+      border: 2px solid rgba(255, 255, 255, 0.4); border-radius: 32px;
+    }
+    #dbg {
+      position: fixed; left: 8px; bottom: 8px; z-index: 10;
+      color: #5f5; font-family: monospace; font-size: 14px;
+      white-space: pre-line; pointer-events: none;
+    }
+    #stat {
+      position: fixed; right: 8px; bottom: 8px; z-index: 10;
+      color: #5cf; font-family: monospace; font-size: 14px;
+      white-space: pre-line; text-align: right; pointer-events: none;
+    }
   </style>
 </head>
 <body>
   <video id="v" autoplay playsinline muted></video>
   <div id="status">Connecting…</div>
+  <button id="sound">🔊 Tap for sound</button>
+  <div id="dbg"></div>
+  <div id="stat"></div>
   <script>
     let pc;
+    let statsTimer = null;
+    let retries = 0;
+    const MAX_RETRIES = 3;
 
     function setStatus(s) {
       const el = document.getElementById('status');
       el.textContent = s;
       el.style.display = s ? 'flex' : 'none';
+    }
+
+    // On-screen diagnostics (also mirrored to logcat via the bridge).
+    function dbg(msg) {
+      document.getElementById('dbg').textContent += msg + '\n';
+      AndroidBridge.log(msg);
     }
 
     // Nest does not support trickle ICE — gather all candidates, then send the
@@ -42,29 +71,62 @@
       });
     }
 
+    // Poll inbound RTP stats so we can see whether audio packets actually arrive.
+    // If audio pkts climb but you hear nothing → output/volume issue, not the stream.
+    // If audio pkts stay 0 → the doorbell isn't sending audio (mic off / inactive).
+    function startStats() {
+      if (statsTimer) clearInterval(statsTimer);
+      statsTimer = setInterval(async () => {
+        if (!pc) return;
+        let a = null, v = null;
+        (await pc.getStats()).forEach((r) => {
+          if (r.type === 'inbound-rtp' && r.kind === 'audio') a = r;
+          if (r.type === 'inbound-rtp' && r.kind === 'video') v = r;
+        });
+        document.getElementById('stat').textContent =
+          'audio pkts ' + (a ? a.packetsReceived : 'n/a') + '\n' +
+          'video pkts ' + (v ? v.packetsReceived : 'n/a');
+      }, 1000);
+    }
+
     async function start() {
       try {
         pc = new RTCPeerConnection({
           iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         });
-        // View-only: receive audio + video, send nothing.
+        startStats();
+
+        // Nest requires the offer's m-lines in this exact order and direction:
+        //   audio (recvonly), video (recvonly), application (data channel).
+        // The SDM REST API is receive-only — it rejects sendrecv audio, so
+        // two-way talk is not possible here (it needs the Home APIs SDK + GMS).
+        // We still RECEIVE the doorbell's audio, so you can hear the visitor.
         pc.addTransceiver('audio', { direction: 'recvonly' });
         pc.addTransceiver('video', { direction: 'recvonly' });
-        // Nest requires a data channel to be present in the offer.
         pc.createDataChannel('dataSendChannel');
 
         pc.ontrack = (e) => {
+          // Show each track's kind so we can see whether audio is arriving.
+          dbg('track: ' + e.track.kind);
           const v = document.getElementById('v');
           if (e.streams && e.streams[0] && v.srcObject !== e.streams[0]) {
             v.srcObject = e.streams[0];
-            // Unmute once we actually have media (autoplay needs muted to start).
-            v.muted = false;
             setStatus('');
+            // Video autoplays muted (browser requirement). Audio can only be
+            // unmuted by a real user tap, so surface a button for it.
+            document.getElementById('sound').style.display = 'block';
           }
         };
+        pc.oniceconnectionstatechange = () => dbg('ice: ' + pc.iceConnectionState);
         pc.onconnectionstatechange = () => {
-          AndroidBridge.log('connection: ' + pc.connectionState);
-          if (pc.connectionState === 'failed') setStatus('Connection failed');
+          dbg('conn: ' + pc.connectionState);
+          if (pc.connectionState === 'connected') {
+            retries = 0;
+            // Connection is up — ask the activity to route audio to the speaker.
+            AndroidBridge.onConnected();
+          } else if (pc.connectionState === 'failed') {
+            reconnect();
+          }
         };
 
         const offer = await pc.createOffer();
@@ -76,16 +138,58 @@
       }
     }
 
+    function teardown() {
+      if (statsTimer) { clearInterval(statsTimer); statsTimer = null; }
+      if (pc) { try { pc.close(); } catch (e) {} pc = null; }
+    }
+
+    // Nest WebRTC sessions are time-limited and the network can drop; re-establish
+    // a fresh stream (new offer → new SDM session) up to a few times.
+    function reconnect() {
+      teardown();
+      if (retries >= MAX_RETRIES) {
+        setStatus('Connection lost');
+        return;
+      }
+      retries++;
+      setStatus('Reconnecting… (' + retries + '/' + MAX_RETRIES + ')');
+      AndroidBridge.onReconnect(); // let the activity stop the stale session
+      setTimeout(start, 1500);
+    }
+
     // Called from Kotlin with the SDM answer SDP.
     async function setAnswer(sdp) {
       try {
         await pc.setRemoteDescription({ type: 'answer', sdp: sdp });
+        // Report what the answer actually grants us — does it include audio?
+        const kinds = pc.getReceivers()
+          .map((r) => r.track && r.track.kind)
+          .filter(Boolean);
+        dbg('answer tracks: ' + (kinds.join(', ') || 'none'));
+        // Does the answer SDP even contain a receivable audio line?
+        dbg('answer has m=audio: ' + /m=audio/.test(sdp));
       } catch (err) {
         AndroidBridge.onError('answer: ' + err);
       }
     }
 
-    window.onload = start;
+    // A real user tap is allowed to unmute, where programmatic unmute is blocked.
+    function setupSoundButton() {
+      const btn = document.getElementById('sound');
+      btn.onclick = () => {
+        const v = document.getElementById('v');
+        v.muted = false;
+        v.volume = 1.0;
+        v.play().then(() => dbg('play ok')).catch((e) => dbg('play err: ' + e));
+        btn.style.display = 'none';
+        dbg('unmuted by tap');
+      };
+    }
+
+    window.onload = () => {
+      setupSoundButton();
+      start();
+    };
   </script>
 </body>
 </html>
