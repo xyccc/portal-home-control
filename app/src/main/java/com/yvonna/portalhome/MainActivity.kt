@@ -8,6 +8,7 @@ import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.yvonna.portalhome.databinding.ActivityMainBinding
@@ -120,31 +121,23 @@ class MainActivity : AppCompatActivity() {
     private fun addRoomSections(assignments: LinkedHashMap<String, List<LightDevice>>) {
         assignments.forEach { (room, roomLights) ->
             val grid = addSection(room)
-            if (room != UNASSIGNED_ROOM) {
-                addRoomControls(grid, room, roomLights)
-            }
-            roomLights.forEach { addLight(it, grid) }
+            addRoomLightCards(grid, room, roomLights)
         }
     }
 
-    private fun addRoomControls(grid: GridLayout, room: String, lights: List<LightDevice>) {
-        addSceneCard(
-            grid = grid,
-            title = "$room lights",
-            primary = "On",
-            secondary = "Off",
-            onPrimary = { applyToLights(lights, on = true) },
-            onSecondary = { applyToLights(lights, on = false) },
-        )
-        if (lights.any { it.supportsBrightness }) {
-            addSceneCard(
-                grid = grid,
-                title = "$room brightness",
-                primary = "Bright",
-                secondary = "Dim",
-                onPrimary = { applyToLights(lights, on = true, brightness = 100) },
-                onSecondary = { applyToLights(lights, on = true, brightness = 30) },
-            )
+    private fun addRoomLightCards(grid: GridLayout, room: String, lights: List<LightDevice>) {
+        val sourceGroups = lights.groupBy { it.source }
+        if (room == UNASSIGNED_ROOM) {
+            lights.forEach { addLight(it, grid) }
+            return
+        }
+
+        sourceGroups.forEach { (source, sourceLights) ->
+            if (sourceLights.size == 1) {
+                addLight(sourceLights.first(), grid)
+            } else {
+                addLightGroup(room, source, sourceGroups.size, sourceLights, grid)
+            }
         }
     }
 
@@ -196,6 +189,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun addLight(light: LightDevice, grid: GridLayout) {
         val row = ItemDeviceBinding.inflate(layoutInflater, grid, false)
+        bindLightCard(row, light)
+        addCardToGrid(grid, row.root)
+    }
+
+    private fun bindLightCard(row: ItemDeviceBinding, light: LightDevice) {
         row.txtName.text = light.name
 
         // Nullable var so the lambda can re-attach itself by reference after a revert.
@@ -258,8 +256,153 @@ class MainActivity : AppCompatActivity() {
         } else {
             row.sliderBrightness.visibility = View.GONE
         }
+    }
 
+    private fun addLightGroup(
+        room: String,
+        source: Source,
+        roomSourceCount: Int,
+        lights: List<LightDevice>,
+        grid: GridLayout,
+    ) {
+        val row = ItemDeviceBinding.inflate(layoutInflater, grid, false)
+        row.txtName.text = groupTitle(room, source, roomSourceCount, lights)
+
+        var toggleListener: android.widget.CompoundButton.OnCheckedChangeListener? = null
+        toggleListener = android.widget.CompoundButton.OnCheckedChangeListener { view, isChecked ->
+            view.isEnabled = false
+            lifecycleScope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        lights.forEach { light ->
+                            when (light.source) {
+                                Source.HUE -> hue.setOn(light.id, isChecked)
+                                Source.TUYA -> tuya.setOn(light.id, isChecked)
+                            }
+                        }
+                    }
+                }
+                if (result.isFailure) {
+                    toast("Group toggle failed: ${result.exceptionOrNull()?.message}")
+                    row.swToggle.setOnCheckedChangeListener(null)
+                    row.swToggle.isChecked = !isChecked
+                    row.swToggle.setOnCheckedChangeListener(toggleListener)
+                } else {
+                    load()
+                }
+                view.isEnabled = true
+            }
+        }
+        row.swToggle.setOnCheckedChangeListener(null)
+        row.swToggle.isChecked = lights.any { it.on }
+        row.swToggle.setOnCheckedChangeListener(toggleListener)
+
+        val dimmable = lights.filter { it.supportsBrightness }
+        if (dimmable.isNotEmpty()) {
+            row.sliderBrightness.visibility = View.VISIBLE
+            row.sliderBrightness.value = dimmable
+                .mapNotNull { it.brightness }
+                .ifEmpty { listOf(1) }
+                .average()
+                .toInt()
+                .coerceIn(1, 100)
+                .toFloat()
+            row.sliderBrightness.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+                override fun onStartTrackingTouch(slider: Slider) {}
+                override fun onStopTrackingTouch(slider: Slider) {
+                    val level = slider.value.toInt()
+                    slider.isEnabled = false
+                    lifecycleScope.launch {
+                        val result = runCatching {
+                            withContext(Dispatchers.IO) {
+                                lights.forEach { light ->
+                                    when (light.source) {
+                                        Source.HUE -> {
+                                            if (light.supportsBrightness) hue.setBrightness(light.id, level)
+                                            else hue.setOn(light.id, true)
+                                        }
+                                        Source.TUYA -> {
+                                            if (light.supportsBrightness) tuya.setBrightness(light.id, level)
+                                            else tuya.setOn(light.id, true)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        if (result.isFailure) {
+                            toast("Group brightness failed: ${result.exceptionOrNull()?.message}")
+                        } else {
+                            row.swToggle.setOnCheckedChangeListener(null)
+                            row.swToggle.isChecked = true
+                            row.swToggle.setOnCheckedChangeListener(toggleListener)
+                            load()
+                        }
+                        slider.isEnabled = true
+                    }
+                }
+            })
+        } else {
+            row.sliderBrightness.visibility = View.GONE
+        }
+
+        row.root.setOnClickListener { showLightGroup(room, source, lights) }
         addCardToGrid(grid, row.root)
+    }
+
+    private fun showLightGroup(room: String, source: Source, lights: List<LightDevice>) {
+        val grid = GridLayout(this).apply {
+            columnCount = 1
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+        }
+        lights.forEach { light -> addDialogLight(light, grid) }
+        AlertDialog.Builder(this)
+            .setTitle(groupDialogTitle(room, source, lights))
+            .setView(grid)
+            .setPositiveButton("Done", null)
+            .show()
+            .setOnDismissListener { load() }
+    }
+
+    private fun addDialogLight(light: LightDevice, grid: GridLayout) {
+        val row = ItemDeviceBinding.inflate(layoutInflater, grid, false)
+        bindLightCard(row, light)
+        val lp = GridLayout.LayoutParams().apply {
+            width = ViewGroup.LayoutParams.MATCH_PARENT
+            height = dp(126)
+            setMargins(dp(6), dp(6), dp(6), dp(6))
+        }
+        grid.addView(row.root, lp)
+    }
+
+    private fun groupTitle(
+        room: String,
+        source: Source,
+        roomSourceCount: Int,
+        lights: List<LightDevice>,
+    ): String {
+        val label = if (roomSourceCount == 1) {
+            "$room lights"
+        } else {
+            "$room ${sourceLabel(source)} lights"
+        }
+        val onCount = lights.count { it.on }
+        val brightness = lights.mapNotNull { it.brightness }.takeIf { it.isNotEmpty() }
+            ?.average()?.toInt()
+        val status = if (brightness == null) {
+            "$onCount On"
+        } else {
+            "$onCount On • $brightness%"
+        }
+        return "$label\n$status"
+    }
+
+    private fun groupDialogTitle(room: String, source: Source, lights: List<LightDevice>): String {
+        return "$room ${sourceLabel(source)} lights (${lights.size})"
+    }
+
+    private fun sourceLabel(source: Source): String = when (source) {
+        Source.HUE -> "Hue"
+        Source.TUYA -> "Feit"
     }
 
     private fun addSceneCard(
