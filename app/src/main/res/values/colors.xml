@@ -1,14 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="portal_bg_top">#111818</color>
-    <color name="portal_bg_bottom">#070A0B</color>
-    <color name="portal_surface">#182222</color>
-    <color name="portal_surface_soft">#223030</color>
-    <color name="portal_ink">#F2F7F5</color>
-    <color name="portal_ink_muted">#AAB8B4</color>
-    <color name="portal_primary">#41C7B9</color>
-    <color name="portal_primary_dark">#B7FFF5</color>
-    <color name="portal_primary_soft">#183D3A</color>
-    <color name="portal_accent">#F2B15D</color>
-    <color name="portal_outline">#334342</color>
+    <color name="portal_bg_top">#101414</color>
+    <color name="portal_bg_bottom">#080B0C</color>
+    <color name="portal_surface">#1B2424</color>
+    <color name="portal_surface_soft">#243130</color>
+    <color name="portal_surface_high">#2B3938</color>
+    <color name="portal_ink">#F1F7F5</color>
+    <color name="portal_ink_muted">#B4C4C0</color>
+    <color name="portal_primary">#5ED5C8</color>
+    <color name="portal_primary_dark">#C7FFF7</color>
+    <color name="portal_primary_soft">#153D3A</color>
+    <color name="portal_accent">#F2BD72</color>
+    <color name="portal_outline">#41514F</color>
 </resources>
