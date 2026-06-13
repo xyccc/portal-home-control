@@ -168,7 +168,8 @@ class SettingsActivity : AppCompatActivity() {
         val COMMON_ROOMS = listOf(
             "Living Room",
             "Kitchen",
-            "Bedroom",
+            "Master Bedroom",
+            "Guest Bedroom",
             "Bathroom",
             "Dining Room",
             "Office",

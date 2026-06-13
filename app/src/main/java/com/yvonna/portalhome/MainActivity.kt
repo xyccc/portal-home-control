@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity() {
 
             if (allLights.isNotEmpty()) {
                 val assignments = assignLightsToRooms(allLights, config.appRooms)
-                addControls(allLights, assignments)
+                addControls(allLights)
                 addRoomSections(assignments)
             }
 
@@ -95,10 +95,7 @@ class MainActivity : AppCompatActivity() {
         }.onFailure { addInfo("Error: ${it.message}", grid) }
     }
 
-    private fun addControls(
-        allLights: List<LightDevice>,
-        roomAssignments: LinkedHashMap<String, List<LightDevice>>,
-    ) {
+    private fun addControls(allLights: List<LightDevice>) {
         val grid = addSection("Controls")
         addSceneCard(
             grid = grid,
@@ -118,35 +115,36 @@ class MainActivity : AppCompatActivity() {
                 onSecondary = { applyToLights(allLights, on = true, brightness = 30) },
             )
         }
-
-        roomAssignments
-            .filter { it.key != UNASSIGNED_ROOM }
-            .forEach { (room, lights) ->
-                addSceneCard(
-                    grid = grid,
-                    title = room,
-                    primary = "On",
-                    secondary = "Off",
-                    onPrimary = { applyToLights(lights, on = true) },
-                    onSecondary = { applyToLights(lights, on = false) },
-                )
-                if (lights.any { it.supportsBrightness }) {
-                    addSceneCard(
-                        grid = grid,
-                        title = "$room Brightness",
-                        primary = "Bright",
-                        secondary = "Dim",
-                        onPrimary = { applyToLights(lights, on = true, brightness = 100) },
-                        onSecondary = { applyToLights(lights, on = true, brightness = 30) },
-                    )
-                }
-            }
     }
 
     private fun addRoomSections(assignments: LinkedHashMap<String, List<LightDevice>>) {
         assignments.forEach { (room, roomLights) ->
             val grid = addSection(room)
+            if (room != UNASSIGNED_ROOM) {
+                addRoomControls(grid, room, roomLights)
+            }
             roomLights.forEach { addLight(it, grid) }
+        }
+    }
+
+    private fun addRoomControls(grid: GridLayout, room: String, lights: List<LightDevice>) {
+        addSceneCard(
+            grid = grid,
+            title = "$room lights",
+            primary = "On",
+            secondary = "Off",
+            onPrimary = { applyToLights(lights, on = true) },
+            onSecondary = { applyToLights(lights, on = false) },
+        )
+        if (lights.any { it.supportsBrightness }) {
+            addSceneCard(
+                grid = grid,
+                title = "$room brightness",
+                primary = "Bright",
+                secondary = "Dim",
+                onPrimary = { applyToLights(lights, on = true, brightness = 100) },
+                onSecondary = { applyToLights(lights, on = true, brightness = 30) },
+            )
         }
     }
 

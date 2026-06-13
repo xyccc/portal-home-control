@@ -18,6 +18,6 @@
   },
   "rooms": {
     "Living Room": ["Hue white lamp 1", "Signe gradient floor 1"],
-    "Bedroom": ["Hue white lamp 2"]
+    "Master Bedroom": ["Hue white lamp 2"]
   }
 }
