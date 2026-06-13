@@ -2,7 +2,6 @@ package com.yvonna.portalhome.net
 
 import com.yvonna.portalhome.Config
 import com.yvonna.portalhome.model.LightDevice
-import com.yvonna.portalhome.model.RoomGroup
 import com.yvonna.portalhome.model.Source
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -19,8 +18,7 @@ import kotlin.math.roundToInt
 class HueClient(private val cfg: Config) {
 
     private val client = Http.insecureLocalClient
-    private val resourceBase get() = "https://${cfg.hueBridgeIp}/clip/v2/resource"
-    private val lightBase get() = "$resourceBase/light"
+    private val lightBase get() = "https://${cfg.hueBridgeIp}/clip/v2/resource/light"
 
     fun listLights(): List<LightDevice> {
         val req = Request.Builder()
@@ -50,40 +48,6 @@ class HueClient(private val cfg: Config) {
                     brightness = brightness,
                 )
             }
-        }
-    }
-
-    fun listRooms(): List<RoomGroup> {
-        val req = Request.Builder()
-            .url("$resourceBase/room")
-            .header("hue-application-key", cfg.hueAppKey)
-            .get()
-            .build()
-        client.newCall(req).execute().use { resp ->
-            val body = resp.body?.string().orEmpty()
-            if (!resp.isSuccessful) error("Hue room list failed: ${resp.code} $body")
-            val data = JSONObject(body).optJSONArray("data") ?: return emptyList()
-            val rooms = mutableListOf<RoomGroup>()
-            for (i in 0 until data.length()) {
-                val room = data.getJSONObject(i)
-                val name = room.optJSONObject("metadata")?.optString("name").orEmpty()
-                    .ifEmpty { "Room ${i + 1}" }
-                val services = room.optJSONArray("services")
-                var groupedLightId = ""
-                if (services != null) {
-                    for (j in 0 until services.length()) {
-                        val service = services.getJSONObject(j)
-                        if (service.optString("rtype") == "grouped_light") {
-                            groupedLightId = service.optString("rid")
-                            break
-                        }
-                    }
-                }
-                if (groupedLightId.isNotEmpty()) {
-                    rooms += RoomGroup(groupedLightId, name, Source.HUE)
-                }
-            }
-            return rooms
         }
     }
 
@@ -118,37 +82,6 @@ class HueClient(private val cfg: Config) {
         client.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) {
                 error("Hue setBrightness failed: ${resp.code} ${resp.body?.string().orEmpty()}")
-            }
-        }
-    }
-
-    fun setRoomOn(id: String, on: Boolean) {
-        val payload = JSONObject().put("on", JSONObject().put("on", on)).toString()
-        val req = Request.Builder()
-            .url("$resourceBase/grouped_light/$id")
-            .header("hue-application-key", cfg.hueAppKey)
-            .put(payload.toRequestBody(JSON))
-            .build()
-        client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                error("Hue room setOn failed: ${resp.code} ${resp.body?.string().orEmpty()}")
-            }
-        }
-    }
-
-    fun setRoomBrightness(id: String, brightness: Int) {
-        val payload = JSONObject()
-            .put("on", JSONObject().put("on", true))
-            .put("dimming", JSONObject().put("brightness", brightness.coerceIn(1, 100)))
-            .toString()
-        val req = Request.Builder()
-            .url("$resourceBase/grouped_light/$id")
-            .header("hue-application-key", cfg.hueAppKey)
-            .put(payload.toRequestBody(JSON))
-            .build()
-        client.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) {
-                error("Hue room brightness failed: ${resp.code} ${resp.body?.string().orEmpty()}")
             }
         }
     }

@@ -27,6 +27,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.etNestClientId.setText(config.nestClientId)
         binding.etNestClientSecret.setText(config.nestClientSecret)
         binding.etNestRefreshToken.setText(config.nestRefreshToken)
+        binding.etRooms.setText(config.roomsText)
 
         binding.btnSave.setOnClickListener {
             config.saveAll(
@@ -41,6 +42,7 @@ class SettingsActivity : AppCompatActivity() {
                     Config.NEST_CLIENT_ID to binding.etNestClientId.text.toString(),
                     Config.NEST_CLIENT_SECRET to binding.etNestClientSecret.text.toString(),
                     Config.NEST_REFRESH_TOKEN to binding.etNestRefreshToken.text.toString(),
+                    Config.ROOMS to binding.etRooms.text.toString(),
                 )
             )
             Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()

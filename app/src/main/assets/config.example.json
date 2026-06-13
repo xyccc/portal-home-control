@@ -15,5 +15,9 @@
     "client_id": "PASTE_OAUTH_CLIENT_ID",
     "client_secret": "PASTE_OAUTH_CLIENT_SECRET",
     "refresh_token": "PASTE_REFRESH_TOKEN_FROM_get_nest_token.py"
+  },
+  "rooms": {
+    "Living Room": ["Hue white lamp 1", "Signe gradient floor 1"],
+    "Bedroom": ["Hue white lamp 2"]
   }
 }

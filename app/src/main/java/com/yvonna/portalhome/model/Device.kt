@@ -25,9 +25,8 @@ data class DoorbellDevice(
     val online: Boolean,
 )
 
-/** A room/group exposed by a backend, currently Hue grouped_light. */
-data class RoomGroup(
-    val id: String,
+/** A room defined by this app, matching devices by their displayed names. */
+data class AppRoom(
     val name: String,
-    val source: Source,
+    val deviceNames: List<String>,
 )

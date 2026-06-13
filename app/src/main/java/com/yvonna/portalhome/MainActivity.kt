@@ -15,8 +15,8 @@ import com.yvonna.portalhome.databinding.ItemActionBinding
 import com.yvonna.portalhome.databinding.ItemDeviceBinding
 import com.yvonna.portalhome.databinding.ItemSectionBinding
 import com.yvonna.portalhome.databinding.ItemSceneBinding
+import com.yvonna.portalhome.model.AppRoom
 import com.yvonna.portalhome.model.LightDevice
-import com.yvonna.portalhome.model.RoomGroup
 import com.yvonna.portalhome.model.Source
 import com.yvonna.portalhome.net.HueClient
 import com.yvonna.portalhome.net.NestSdmClient
@@ -69,19 +69,16 @@ class MainActivity : AppCompatActivity() {
             val tuyaResult = if (config.tuyaConfigured) {
                 runCatching { withContext(Dispatchers.IO) { tuya.listLights() } }
             } else null
-            val roomResult = if (config.hueConfigured) {
-                runCatching { withContext(Dispatchers.IO) { hue.listRooms() } }
-            } else null
 
             val hueLights = hueResult?.getOrNull().orEmpty()
             val tuyaLights = tuyaResult?.getOrNull().orEmpty()
             val allLights = hueLights + tuyaLights
 
             if (allLights.isNotEmpty()) addScenes(allLights)
-            roomResult?.getOrNull()?.takeIf { it.isNotEmpty() }?.let { addRooms(it) }
+            if (allLights.isNotEmpty()) addRoomSections(allLights, config.appRooms)
 
-            hueResult?.let { addLightSection("Philips Hue", it) }
-            tuyaResult?.let { addLightSection("Feit (Tuya)", it) }
+            hueResult?.exceptionOrNull()?.let { addErrorSection("Philips Hue", it) }
+            tuyaResult?.exceptionOrNull()?.let { addErrorSection("Feit (Tuya)", it) }
             if (config.nestConfigured) loadDoorbells()
             binding.txtStatus.text = "Updated."
         }
@@ -105,7 +102,7 @@ class MainActivity : AppCompatActivity() {
             onPrimary = { applyToLights(lights, on = true) },
             onSecondary = { applyToLights(lights, on = false) },
         )
-        if (lights.any { it.supportsBrightness && it.source == Source.HUE }) {
+        if (lights.any { it.supportsBrightness }) {
             addSceneCard(
                 grid = grid,
                 title = "Brightness",
@@ -117,18 +114,54 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun addRooms(rooms: List<RoomGroup>) {
+    private fun addRoomSections(lights: List<LightDevice>, rooms: List<AppRoom>) {
+        val assignments = assignLightsToRooms(lights, rooms)
+        val definedRooms = assignments.filter { it.key != UNASSIGNED_ROOM }
+        if (definedRooms.isNotEmpty()) addRoomControls(definedRooms)
+        assignments.forEach { (room, roomLights) ->
+            val grid = addSection(room)
+            roomLights.forEach { addLight(it, grid) }
+        }
+    }
+
+    private fun addRoomControls(rooms: Map<String, List<LightDevice>>) {
         val grid = addSection("Rooms")
-        rooms.forEach { room ->
+        rooms.forEach { (room, lights) ->
             addSceneCard(
                 grid = grid,
-                title = room.name,
+                title = room,
                 primary = "On",
                 secondary = "Off",
-                onPrimary = { applyRoom(room, on = true) },
-                onSecondary = { applyRoom(room, on = false) },
+                onPrimary = { applyToLights(lights, on = true) },
+                onSecondary = { applyToLights(lights, on = false) },
             )
         }
+    }
+
+    private fun assignLightsToRooms(
+        lights: List<LightDevice>,
+        rooms: List<AppRoom>,
+    ): LinkedHashMap<String, List<LightDevice>> {
+        if (rooms.isEmpty()) return linkedMapOf(UNASSIGNED_ROOM to lights)
+
+        val unassigned = lights.toMutableList()
+        val byName = lights.groupBy { it.name.normalizeRoomKey() }
+        val assigned = linkedMapOf<String, MutableList<LightDevice>>()
+
+        rooms.forEach { room ->
+            val roomLights = mutableListOf<LightDevice>()
+            room.deviceNames.forEach { deviceName ->
+                byName[deviceName.normalizeRoomKey()].orEmpty().forEach { light ->
+                    if (unassigned.remove(light)) roomLights += light
+                }
+            }
+            if (roomLights.isNotEmpty()) assigned[room.name] = roomLights
+        }
+
+        val result = linkedMapOf<String, List<LightDevice>>()
+        assigned.forEach { (room, roomLights) -> result[room] = roomLights }
+        if (unassigned.isNotEmpty()) result[UNASSIGNED_ROOM] = unassigned
+        return result
     }
 
     private suspend fun loadDoorbells() {
@@ -250,30 +283,19 @@ class MainActivity : AppCompatActivity() {
                                     hue.setOn(light.id, on)
                                 }
                             }
-                            Source.TUYA -> tuya.setOn(light.id, on)
+                            Source.TUYA -> {
+                                if (brightness != null && light.supportsBrightness) {
+                                    tuya.setBrightness(light.id, brightness)
+                                } else {
+                                    tuya.setOn(light.id, on)
+                                }
+                            }
                         }
                     }
                 }
             }
             result.onFailure { toast("Scene failed: ${it.message}") }
             binding.txtStatus.text = if (result.isSuccess) "Scene applied." else "Updated."
-            if (result.isSuccess) load()
-        }
-    }
-
-    private fun applyRoom(room: RoomGroup, on: Boolean) {
-        binding.txtStatus.text = "Updating ${room.name}…"
-        lifecycleScope.launch {
-            val result = runCatching {
-                withContext(Dispatchers.IO) {
-                    when (room.source) {
-                        Source.HUE -> hue.setRoomOn(room.id, on)
-                        Source.TUYA -> error("Tuya rooms are not supported yet")
-                    }
-                }
-            }
-            result.onFailure { toast("Room failed: ${it.message}") }
-            binding.txtStatus.text = if (result.isSuccess) "Room updated." else "Updated."
             if (result.isSuccess) load()
         }
     }
@@ -338,5 +360,16 @@ class MainActivity : AppCompatActivity() {
         return (value * resources.displayMetrics.density).toInt()
     }
 
+    private fun addErrorSection(title: String, error: Throwable) {
+        val grid = addSection(title)
+        addInfo("Error: ${error.message}", grid)
+    }
+
+    private fun String.normalizeRoomKey(): String = trim().lowercase()
+
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+
+    private companion object {
+        const val UNASSIGNED_ROOM = "Unassigned"
+    }
 }

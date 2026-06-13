@@ -1,6 +1,8 @@
 package com.yvonna.portalhome
 
 import android.content.Context
+import com.yvonna.portalhome.model.AppRoom
+import org.json.JSONArray
 import org.json.JSONObject
 
 /**
@@ -40,6 +42,9 @@ class Config(context: Context) {
         copy("nest", "client_id", NEST_CLIENT_ID)
         copy("nest", "client_secret", NEST_CLIENT_SECRET)
         copy("nest", "refresh_token", NEST_REFRESH_TOKEN)
+        root.opt("rooms")?.let { rooms ->
+            e.putString(ROOMS, formatSeedRooms(rooms))
+        }
         e.apply()
     }
 
@@ -71,6 +76,44 @@ class Config(context: Context) {
         get() = nestProjectId.isNotEmpty() && nestClientId.isNotEmpty() &&
             nestClientSecret.isNotEmpty() && nestRefreshToken.isNotEmpty()
 
+    val roomsText get() = get(ROOMS)
+
+    val appRooms: List<AppRoom>
+        get() = roomsText.lines().mapNotNull { line ->
+            val trimmed = line.trim()
+            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@mapNotNull null
+            val parts = trimmed.split(":", limit = 2)
+            if (parts.size != 2) return@mapNotNull null
+            val name = parts[0].trim()
+            val devices = parts[1].split(",")
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+            if (name.isEmpty() || devices.isEmpty()) null else AppRoom(name, devices)
+        }
+
+    private fun formatSeedRooms(rooms: Any): String {
+        return when (rooms) {
+            is JSONObject -> rooms.keys().asSequence().joinToString("\n") { name ->
+                val names = rooms.optJSONArray(name)
+                val devices = if (names == null) {
+                    rooms.optString(name)
+                } else {
+                    (0 until names.length()).joinToString(", ") { i -> names.optString(i) }
+                }
+                "$name: $devices"
+            }
+            is JSONArray -> (0 until rooms.length()).joinToString("\n") { i ->
+                val room = rooms.optJSONObject(i) ?: JSONObject()
+                val name = room.optString("name")
+                val devices = room.optJSONArray("devices") ?: JSONArray()
+                "$name: " + (0 until devices.length()).joinToString(", ") { j ->
+                    devices.optString(j)
+                }
+            }
+            else -> rooms.toString()
+        }
+    }
+
     companion object {
         private const val PREFS = "portalhome"
 
@@ -84,5 +127,6 @@ class Config(context: Context) {
         const val NEST_CLIENT_ID = "nest_client_id"
         const val NEST_CLIENT_SECRET = "nest_client_secret"
         const val NEST_REFRESH_TOKEN = "nest_refresh_token"
+        const val ROOMS = "rooms"
     }
 }
