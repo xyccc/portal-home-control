@@ -181,8 +181,8 @@ class MainActivity : AppCompatActivity() {
         row.swToggle.isChecked = light.on
         row.swToggle.setOnCheckedChangeListener(toggleListener)
 
-        // Brightness slider — only for dimmable lights (currently Hue).
-        if (light.supportsBrightness && light.source == Source.HUE) {
+        // Brightness slider — only for dimmable lights.
+        if (light.supportsBrightness) {
             row.sliderBrightness.visibility = View.VISIBLE
             row.sliderBrightness.value = (light.brightness ?: 1).coerceIn(1, 100).toFloat()
             // Commit on release rather than on every step, to avoid flooding the bridge.
@@ -193,7 +193,12 @@ class MainActivity : AppCompatActivity() {
                     slider.isEnabled = false
                     lifecycleScope.launch {
                         val ok = runCatching {
-                            withContext(Dispatchers.IO) { hue.setBrightness(light.id, level) }
+                            withContext(Dispatchers.IO) {
+                                when (light.source) {
+                                    Source.HUE -> hue.setBrightness(light.id, level)
+                                    Source.TUYA -> tuya.setBrightness(light.id, level)
+                                }
+                            }
                         }
                         if (ok.isFailure) {
                             toast("Brightness failed: ${ok.exceptionOrNull()?.message}")

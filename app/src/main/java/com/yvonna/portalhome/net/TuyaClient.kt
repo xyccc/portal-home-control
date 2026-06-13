@@ -30,6 +30,8 @@ class TuyaClient(private val cfg: Config) {
 
     /** Remembers which DP code drives each bulb's on/off, learned at list time. */
     private val switchCodeById = mutableMapOf<String, String>()
+    /** Remembers which DP code drives each bulb's brightness, learned at list time. */
+    private val brightCodeById = mutableMapOf<String, String>()
 
     fun listLights(): List<LightDevice> {
         val path = "/v1.0/users/${cfg.tuyaUid}/devices"
@@ -42,11 +44,14 @@ class TuyaClient(private val cfg: Config) {
             val status = d.optJSONArray("status") ?: JSONArray()
             val (code, value) = findSwitch(status) ?: continue
             switchCodeById[d.getString("id")] = code
+            val bright = findBrightness(status)
+            if (bright != null) brightCodeById[d.getString("id")] = bright.first
             lights += LightDevice(
                 id = d.getString("id"),
                 name = d.optString("name", "Feit device"),
                 on = value,
                 source = Source.TUYA,
+                brightness = bright?.second,
             )
         }
         return lights
@@ -61,6 +66,24 @@ class TuyaClient(private val cfg: Config) {
         if (!resp.optBoolean("success", false)) error("Tuya setOn failed: $resp")
     }
 
+    /**
+     * Sets brightness as a percentage (1-100). Tuya Color Light DPs use a
+     * 10-1000 scale, so we map accordingly. Also turns the light on so
+     * dragging the slider always produces visible feedback.
+     */
+    fun setBrightness(id: String, brightness: Int) {
+        val code = brightCodeById[id] ?: "bright_value_v2"
+        val switchCode = switchCodeById[id] ?: "switch_led"
+        val tuyaValue = (brightness.coerceIn(1, 100) * 10).coerceIn(10, 1000)
+        val body = JSONObject()
+            .put("commands", JSONArray()
+                .put(JSONObject().put("code", switchCode).put("value", true))
+                .put(JSONObject().put("code", code).put("value", tuyaValue)))
+            .toString()
+        val resp = JSONObject(signedPost("/v1.0/devices/$id/commands", body))
+        if (!resp.optBoolean("success", false)) error("Tuya setBrightness failed: $resp")
+    }
+
     /** Returns the first boolean on/off DP and its current value, if present. */
     private fun findSwitch(status: JSONArray): Pair<String, Boolean>? {
         for (i in 0 until status.length()) {
@@ -68,6 +91,24 @@ class TuyaClient(private val cfg: Config) {
             val code = s.optString("code")
             if (code in SWITCH_CODES && !s.isNull("value") && s.get("value") is Boolean) {
                 return code to s.getBoolean("value")
+            }
+        }
+        return null
+    }
+
+    /**
+     * Returns the first brightness DP code and its value mapped to a 1-100 percentage.
+     * Tuya Color Lights report brightness on a 10-1000 scale.
+     */
+    private fun findBrightness(status: JSONArray): Pair<String, Int>? {
+        for (i in 0 until status.length()) {
+            val s = status.getJSONObject(i)
+            val code = s.optString("code")
+            if (code in BRIGHT_CODES && !s.isNull("value")) {
+                val raw = s.optInt("value", -1)
+                if (raw < 0) continue
+                val percent = (raw / 10).coerceIn(1, 100)
+                return code to percent
             }
         }
         return null
@@ -138,5 +179,6 @@ class TuyaClient(private val cfg: Config) {
     companion object {
         private val JSON = "application/json".toMediaType()
         private val SWITCH_CODES = setOf("switch_led", "switch_1", "switch")
+        private val BRIGHT_CODES = setOf("bright_value_v2", "bright_value", "bright_value_1")
     }
 }
