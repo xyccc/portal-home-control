@@ -11,5 +11,9 @@
     <color name="portal_primary_dark">#C7FFF7</color>
     <color name="portal_primary_soft">#153D3A</color>
     <color name="portal_accent">#F2BD72</color>
+    <color name="portal_group_surface">#493D25</color>
+    <color name="portal_group_surface_off">#243130</color>
+    <color name="portal_group_outline">#7C6334</color>
+    <color name="portal_group_ink">#FFF4CF</color>
     <color name="portal_outline">#41514F</color>
 </resources>

@@ -1,6 +1,7 @@
 package com.yvonna.portalhome
 
 import android.content.Intent
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
@@ -267,6 +268,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         val row = ItemDeviceBinding.inflate(layoutInflater, grid, false)
         row.txtName.text = groupTitle(room, source, roomSourceCount, lights)
+        styleLightGroupCard(row, lights)
 
         var toggleListener: android.widget.CompoundButton.OnCheckedChangeListener? = null
         toggleListener = android.widget.CompoundButton.OnCheckedChangeListener { view, isChecked ->
@@ -346,7 +348,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         row.root.setOnClickListener { showLightGroup(room, source, lights) }
-        addCardToGrid(grid, row.root)
+        addGroupCardToGrid(grid, row.root)
     }
 
     private fun showLightGroup(room: String, source: Source, lights: List<LightDevice>) {
@@ -355,12 +357,23 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(10), dp(8), dp(10), dp(8))
         }
         lights.forEach { light -> addDialogLight(light, grid) }
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle(groupDialogTitle(room, source, lights))
             .setView(grid)
             .setPositiveButton("Done", null)
             .show()
-            .setOnDismissListener { load() }
+        dialog.window?.setBackgroundDrawable(ColorDrawable(getColor(R.color.portal_surface)))
+        dialog.setOnDismissListener { load() }
+    }
+
+    private fun styleLightGroupCard(row: ItemDeviceBinding, lights: List<LightDevice>) {
+        val isOn = lights.any { it.on }
+        row.root.setCardBackgroundColor(
+            getColor(if (isOn) R.color.portal_group_surface else R.color.portal_group_surface_off)
+        )
+        row.root.strokeWidth = dp(1)
+        row.root.strokeColor = getColor(if (isOn) R.color.portal_group_outline else R.color.portal_outline)
+        row.txtName.setTextColor(getColor(if (isOn) R.color.portal_group_ink else R.color.portal_ink))
     }
 
     private fun addDialogLight(light: LightDevice, grid: GridLayout) {
@@ -494,6 +507,21 @@ class MainActivity : AppCompatActivity() {
             height = dp(126)
             columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
             setMargins(dp(6), dp(6), dp(6), dp(6))
+        }
+        grid.addView(view, lp)
+    }
+
+    private fun addGroupCardToGrid(grid: GridLayout, view: View) {
+        val targetWidth = when {
+            resources.configuration.screenWidthDp >= 900 -> dp(440)
+            resources.configuration.screenWidthDp >= 640 -> dp(360)
+            else -> ViewGroup.LayoutParams.MATCH_PARENT
+        }
+        val lp = GridLayout.LayoutParams().apply {
+            width = targetWidth
+            height = dp(148)
+            columnSpec = GridLayout.spec(GridLayout.UNDEFINED)
+            setMargins(dp(6), dp(8), dp(10), dp(10))
         }
         grid.addView(view, lp)
     }
