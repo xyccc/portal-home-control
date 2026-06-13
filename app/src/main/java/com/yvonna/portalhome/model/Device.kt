@@ -24,3 +24,10 @@ data class DoorbellDevice(
     val type: String,
     val online: Boolean,
 )
+
+/** A room/group exposed by a backend, currently Hue grouped_light. */
+data class RoomGroup(
+    val id: String,
+    val name: String,
+    val source: Source,
+)

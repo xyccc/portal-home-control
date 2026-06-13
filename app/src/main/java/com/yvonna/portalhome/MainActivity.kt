@@ -14,7 +14,9 @@ import com.yvonna.portalhome.databinding.ActivityMainBinding
 import com.yvonna.portalhome.databinding.ItemActionBinding
 import com.yvonna.portalhome.databinding.ItemDeviceBinding
 import com.yvonna.portalhome.databinding.ItemSectionBinding
+import com.yvonna.portalhome.databinding.ItemSceneBinding
 import com.yvonna.portalhome.model.LightDevice
+import com.yvonna.portalhome.model.RoomGroup
 import com.yvonna.portalhome.model.Source
 import com.yvonna.portalhome.net.HueClient
 import com.yvonna.portalhome.net.NestSdmClient
@@ -61,20 +63,72 @@ class MainActivity : AppCompatActivity() {
         }
         binding.txtStatus.text = "Loading…"
         lifecycleScope.launch {
-            if (config.hueConfigured) loadLights("Philips Hue") { hue.listLights() }
-            if (config.tuyaConfigured) loadLights("Feit (Tuya)") { tuya.listLights() }
+            val hueResult = if (config.hueConfigured) {
+                runCatching { withContext(Dispatchers.IO) { hue.listLights() } }
+            } else null
+            val tuyaResult = if (config.tuyaConfigured) {
+                runCatching { withContext(Dispatchers.IO) { tuya.listLights() } }
+            } else null
+            val roomResult = if (config.hueConfigured) {
+                runCatching { withContext(Dispatchers.IO) { hue.listRooms() } }
+            } else null
+
+            val hueLights = hueResult?.getOrNull().orEmpty()
+            val tuyaLights = tuyaResult?.getOrNull().orEmpty()
+            val allLights = hueLights + tuyaLights
+
+            if (allLights.isNotEmpty()) addScenes(allLights)
+            roomResult?.getOrNull()?.takeIf { it.isNotEmpty() }?.let { addRooms(it) }
+
+            hueResult?.let { addLightSection("Philips Hue", it) }
+            tuyaResult?.let { addLightSection("Feit (Tuya)", it) }
             if (config.nestConfigured) loadDoorbells()
             binding.txtStatus.text = "Updated."
         }
     }
 
-    private suspend fun loadLights(section: String, fetch: suspend () -> List<LightDevice>) {
+    private fun addLightSection(section: String, result: Result<List<LightDevice>>) {
         val grid = addSection(section)
-        val result = runCatching { withContext(Dispatchers.IO) { fetch() } }
         result.onSuccess { lights ->
             if (lights.isEmpty()) addInfo("No lights found.", grid)
             else lights.forEach { addLight(it, grid) }
         }.onFailure { addInfo("Error: ${it.message}", grid) }
+    }
+
+    private fun addScenes(lights: List<LightDevice>) {
+        val grid = addSection("Scenes")
+        addSceneCard(
+            grid = grid,
+            title = "All Lights",
+            primary = "On",
+            secondary = "Off",
+            onPrimary = { applyToLights(lights, on = true) },
+            onSecondary = { applyToLights(lights, on = false) },
+        )
+        if (lights.any { it.supportsBrightness && it.source == Source.HUE }) {
+            addSceneCard(
+                grid = grid,
+                title = "Brightness",
+                primary = "Bright",
+                secondary = "Dim",
+                onPrimary = { applyToLights(lights, on = true, brightness = 100) },
+                onSecondary = { applyToLights(lights, on = true, brightness = 30) },
+            )
+        }
+    }
+
+    private fun addRooms(rooms: List<RoomGroup>) {
+        val grid = addSection("Rooms")
+        rooms.forEach { room ->
+            addSceneCard(
+                grid = grid,
+                title = room.name,
+                primary = "On",
+                secondary = "Off",
+                onPrimary = { applyRoom(room, on = true) },
+                onSecondary = { applyRoom(room, on = false) },
+            )
+        }
     }
 
     private suspend fun loadDoorbells() {
@@ -158,6 +212,65 @@ class MainActivity : AppCompatActivity() {
         }
 
         addCardToGrid(grid, row.root)
+    }
+
+    private fun addSceneCard(
+        grid: GridLayout,
+        title: String,
+        primary: String,
+        secondary: String,
+        onPrimary: () -> Unit,
+        onSecondary: () -> Unit,
+    ) {
+        val row = ItemSceneBinding.inflate(layoutInflater, grid, false)
+        row.txtName.text = title
+        row.btnPrimary.text = primary
+        row.btnSecondary.text = secondary
+        row.btnPrimary.setOnClickListener { onPrimary() }
+        row.btnSecondary.setOnClickListener { onSecondary() }
+        addCardToGrid(grid, row.root)
+    }
+
+    private fun applyToLights(lights: List<LightDevice>, on: Boolean, brightness: Int? = null) {
+        binding.txtStatus.text = "Applying scene…"
+        lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    lights.forEach { light ->
+                        when (light.source) {
+                            Source.HUE -> {
+                                if (brightness != null && light.supportsBrightness) {
+                                    hue.setBrightness(light.id, brightness)
+                                } else {
+                                    hue.setOn(light.id, on)
+                                }
+                            }
+                            Source.TUYA -> tuya.setOn(light.id, on)
+                        }
+                    }
+                }
+            }
+            result.onFailure { toast("Scene failed: ${it.message}") }
+            binding.txtStatus.text = if (result.isSuccess) "Scene applied." else "Updated."
+            if (result.isSuccess) load()
+        }
+    }
+
+    private fun applyRoom(room: RoomGroup, on: Boolean) {
+        binding.txtStatus.text = "Updating ${room.name}…"
+        lifecycleScope.launch {
+            val result = runCatching {
+                withContext(Dispatchers.IO) {
+                    when (room.source) {
+                        Source.HUE -> hue.setRoomOn(room.id, on)
+                        Source.TUYA -> error("Tuya rooms are not supported yet")
+                    }
+                }
+            }
+            result.onFailure { toast("Room failed: ${it.message}") }
+            binding.txtStatus.text = if (result.isSuccess) "Room updated." else "Updated."
+            if (result.isSuccess) load()
+        }
     }
 
     private fun addSection(title: String): GridLayout {
