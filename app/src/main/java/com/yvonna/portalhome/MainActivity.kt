@@ -74,8 +74,11 @@ class MainActivity : AppCompatActivity() {
             val tuyaLights = tuyaResult?.getOrNull().orEmpty()
             val allLights = hueLights + tuyaLights
 
-            if (allLights.isNotEmpty()) addScenes(allLights)
-            if (allLights.isNotEmpty()) addRoomSections(allLights, config.appRooms)
+            if (allLights.isNotEmpty()) {
+                val assignments = assignLightsToRooms(allLights, config.appRooms)
+                addControls(allLights, assignments)
+                addRoomSections(assignments)
+            }
 
             hueResult?.exceptionOrNull()?.let { addErrorSection("Philips Hue", it) }
             tuyaResult?.exceptionOrNull()?.let { addErrorSection("Feit (Tuya)", it) }
@@ -92,49 +95,58 @@ class MainActivity : AppCompatActivity() {
         }.onFailure { addInfo("Error: ${it.message}", grid) }
     }
 
-    private fun addScenes(lights: List<LightDevice>) {
-        val grid = addSection("Scenes")
+    private fun addControls(
+        allLights: List<LightDevice>,
+        roomAssignments: LinkedHashMap<String, List<LightDevice>>,
+    ) {
+        val grid = addSection("Controls")
         addSceneCard(
             grid = grid,
-            title = "All Lights",
+            title = "Whole Home",
             primary = "On",
             secondary = "Off",
-            onPrimary = { applyToLights(lights, on = true) },
-            onSecondary = { applyToLights(lights, on = false) },
+            onPrimary = { applyToLights(allLights, on = true) },
+            onSecondary = { applyToLights(allLights, on = false) },
         )
-        if (lights.any { it.supportsBrightness }) {
+        if (allLights.any { it.supportsBrightness }) {
             addSceneCard(
                 grid = grid,
-                title = "Brightness",
+                title = "Whole Home Brightness",
                 primary = "Bright",
                 secondary = "Dim",
-                onPrimary = { applyToLights(lights, on = true, brightness = 100) },
-                onSecondary = { applyToLights(lights, on = true, brightness = 30) },
+                onPrimary = { applyToLights(allLights, on = true, brightness = 100) },
+                onSecondary = { applyToLights(allLights, on = true, brightness = 30) },
             )
         }
+
+        roomAssignments
+            .filter { it.key != UNASSIGNED_ROOM }
+            .forEach { (room, lights) ->
+                addSceneCard(
+                    grid = grid,
+                    title = room,
+                    primary = "On",
+                    secondary = "Off",
+                    onPrimary = { applyToLights(lights, on = true) },
+                    onSecondary = { applyToLights(lights, on = false) },
+                )
+                if (lights.any { it.supportsBrightness }) {
+                    addSceneCard(
+                        grid = grid,
+                        title = "$room Brightness",
+                        primary = "Bright",
+                        secondary = "Dim",
+                        onPrimary = { applyToLights(lights, on = true, brightness = 100) },
+                        onSecondary = { applyToLights(lights, on = true, brightness = 30) },
+                    )
+                }
+            }
     }
 
-    private fun addRoomSections(lights: List<LightDevice>, rooms: List<AppRoom>) {
-        val assignments = assignLightsToRooms(lights, rooms)
-        val definedRooms = assignments.filter { it.key != UNASSIGNED_ROOM }
-        if (definedRooms.isNotEmpty()) addRoomControls(definedRooms)
+    private fun addRoomSections(assignments: LinkedHashMap<String, List<LightDevice>>) {
         assignments.forEach { (room, roomLights) ->
             val grid = addSection(room)
             roomLights.forEach { addLight(it, grid) }
-        }
-    }
-
-    private fun addRoomControls(rooms: Map<String, List<LightDevice>>) {
-        val grid = addSection("Rooms")
-        rooms.forEach { (room, lights) ->
-            addSceneCard(
-                grid = grid,
-                title = room,
-                primary = "On",
-                secondary = "Off",
-                onPrimary = { applyToLights(lights, on = true) },
-                onSecondary = { applyToLights(lights, on = false) },
-            )
         }
     }
 

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="10dp"
+    app:cardBackgroundColor="@color/portal_surface"
+    app:cardCornerRadius="24dp"
+    app:cardElevation="1dp"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="18dp"
+        android:paddingTop="12dp"
+        android:paddingRight="18dp"
+        android:paddingBottom="12dp">
+
+        <TextView
+            android:id="@+id/txtDeviceName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:maxLines="2"
+            android:textColor="@color/portal_ink"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <AutoCompleteTextView
+            android:id="@+id/etRoom"
+            android:layout_width="320dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="18dp"
+            android:hint="Select room"
+            android:inputType="none"
+            android:minHeight="54dp"
+            android:singleLine="true"
+            android:textColor="@color/portal_ink"
+            android:textColorHint="@color/portal_ink_muted" />
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

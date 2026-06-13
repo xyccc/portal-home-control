@@ -90,13 +90,20 @@
             style="@style/SettingsHeader"
             android:text="@string/section_rooms" />
 
-        <EditText
-            android:id="@+id/etRooms"
-            style="@style/SettingsField"
-            android:gravity="top"
-            android:hint="One room per line: Living Room: Hue white lamp 1, Signe gradient floor 1"
-            android:inputType="textMultiLine|textCapWords"
-            android:minLines="5" />
+        <TextView
+            android:id="@+id/txtRoomStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="Loading devices…"
+            android:textColor="@color/portal_ink_muted"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:id="@+id/roomAssignmentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnSave"

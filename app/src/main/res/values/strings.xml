@@ -7,5 +7,5 @@
     <string name="section_hue">Philips Hue</string>
     <string name="section_feit">Feit (Tuya)</string>
     <string name="section_doorbell">Nest Doorbell</string>
-    <string name="section_rooms">Rooms</string>
+    <string name="section_rooms">Assign Rooms</string>
 </resources>
