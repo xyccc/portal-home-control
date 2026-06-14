@@ -36,6 +36,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tuya: TuyaClient
     private lateinit var nest: NestSdmClient
 
+    /** Set to true when we need to re-fetch everything on resume (e.g. after Settings). */
+    private var needsReload = true
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -48,13 +51,17 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnRefresh.setOnClickListener { load() }
         binding.btnSettings.setOnClickListener {
+            needsReload = true
             startActivity(Intent(this, SettingsActivity::class.java))
         }
     }
 
     override fun onResume() {
         super.onResume()
-        load()
+        if (needsReload) {
+            needsReload = false
+            load()
+        }
     }
 
     private fun load() {
@@ -290,7 +297,9 @@ class MainActivity : AppCompatActivity() {
                     row.swToggle.isChecked = !isChecked
                     row.swToggle.setOnCheckedChangeListener(toggleListener)
                 } else {
-                    load()
+                    row.txtName.text = groupTitle(room, source, roomSourceCount,
+                        lights.map { it.copy(on = isChecked) })
+                    styleLightGroupCard(row, lights.map { it.copy(on = isChecked) })
                 }
                 view.isEnabled = true
             }
@@ -337,7 +346,9 @@ class MainActivity : AppCompatActivity() {
                             row.swToggle.setOnCheckedChangeListener(null)
                             row.swToggle.isChecked = true
                             row.swToggle.setOnCheckedChangeListener(toggleListener)
-                            load()
+                            row.txtName.text = groupTitle(room, source, roomSourceCount,
+                                lights.map { it.copy(on = true, brightness = level) })
+                            styleLightGroupCard(row, lights.map { it.copy(on = true) })
                         }
                         slider.isEnabled = true
                     }
@@ -363,7 +374,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Done", null)
             .show()
         dialog.window?.setBackgroundDrawable(ColorDrawable(getColor(R.color.portal_surface)))
-        dialog.setOnDismissListener { load() }
+        dialog.setOnDismissListener { /* no full reload — cards update in place */ }
     }
 
     private fun styleLightGroupCard(row: ItemDeviceBinding, lights: List<LightDevice>) {
@@ -462,7 +473,6 @@ class MainActivity : AppCompatActivity() {
             }
             result.onFailure { toast("Scene failed: ${it.message}") }
             binding.txtStatus.text = if (result.isSuccess) "Scene applied." else "Updated."
-            if (result.isSuccess) load()
         }
     }
 
